@@ -77,8 +77,6 @@ contract Crowdsale {
 		uint256 weiAmount = msg.value;
 		uint256 tokenAmount = weiAmount.mul(rate);
 
-//		token.approve(msg.sender, tokenAmount);
-		Debug(0,weiAmount, tokenAmount);
 		token.transfer(msg.sender, tokenAmount);
 		weiRaised = weiRaised.add( weiAmount);
 		tokensSold = tokensSold.add(tokenAmount);
@@ -96,10 +94,7 @@ contract Crowdsale {
 
 	function burnToken(uint256 amount) onlyOwner public {
 		require(amount > 0);
-
-		if(token.burn(amount)) {
-			tokensSold.sub(amount);
-		}
+		token.burn(amount);
 	}
 
 	function validBuy() internal constant returns (bool) {
@@ -115,7 +110,7 @@ contract Crowdsale {
 
 	//refunds ALL tokens
 	function refundTokens() public returns (bool) {
-		require(!hasEnded());
+		require(now >= startTime && now <= endTime);
 		address refundee = msg.sender;
 		require(deposits[refundee] > 0);
 
@@ -124,17 +119,19 @@ contract Crowdsale {
 
 		deposits[refundee] = 0;
 		//owner receives tokens back from user, user receives ether spent
-		token.transferFrom(refundee, owner, tokensReturned);
-		weiRaised = weiRaised.sub(ethRefund);
-		tokensSold = tokensSold.sub(tokensReturned);
-		refundee.transfer(ethRefund);
-		Refund(refundee, tokensReturned);
+		if (token.refund(msg.sender, tokensReturned)) {
+			weiRaised = weiRaised.sub(ethRefund);
+			tokensSold = tokensSold.sub(tokensReturned);
+			refundee.transfer(ethRefund);
+			Refund(refundee, tokensReturned);
+		}
 	}
 
 	//only callable by owner after sale, sends all ether held in contract to owner
 	//not sure what to do with leftover tokens? owner keeps them for now
 	function finalize() onlyOwner public {
 		require(hasEnded());
+		deposits[owner] = weiRaised;
 		owner.transfer(weiRaised);
 		token.closeMinting();
 	}
@@ -148,7 +145,6 @@ contract Crowdsale {
 		return deposits[_user];
 	}
 
-	event Debug(uint256 a, uint256 b, uint256 c);
 	event Refund(address indexed _user, uint256 _value);
-	event TokenPurchase(address indexed _buyer, uint256 _ethValue, uint256 _tokensBought);
+	event TokenPurchase(address indexed  _buyer, uint256 _ethValue, uint256 _tokensBought);
 }

@@ -64,12 +64,12 @@ contract Token is ERC20Interface {
 		return true;
 	}
 
-	/// will entirely reset current allowance value upon calling, is this a problem?
+
 	function approve(address _spender, uint256 _value) returns (bool success){
 		require(_spender != address(0));
 		require(_value >= 0);
 
-		allowances[msg.sender][_spender] = _value;
+		allowances[msg.sender][_spender] = allowances[msg.sender][_spender].add(_value);
 		Approval(msg.sender, _spender, _value);
 		return true;
 	}
@@ -87,6 +87,14 @@ contract Token is ERC20Interface {
 		balances[msg.sender] = balances[msg.sender].sub(_value);
 		totalSupply = totalSupply.sub(_value);
 		Burn(msg.sender, _value);
+		return true;
+	}
+
+	function refund(address _refundee, uint256 _value) onlyOwner returns (bool success){
+		require(_value >= 0);
+
+		allowances[_refundee][owner] = allowances[_refundee][owner].add(_value);
+		transferFrom(_refundee, owner, _value);
 		return true;
 	}
 
